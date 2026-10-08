@@ -34,11 +34,16 @@
         responseLength: 1024,
         windowOpen: false,
         defaultTemplate: 'relationship',
+        debugMode: false,
+        directorSystemTemplate: null,
+        directorUserTemplate: null,
+        directiveWrapper: null,
     };
 
     let extension_settings;
     let saveSettingsDebounced;
     let pending = null; // Director result for the generation currently in flight
+    let lastRun = null; // last Director run (even if the reply was never saved) — for Debugging Mode
     let busy = false;   // re-entrancy guard
     let windowCreated = false;
     let BASE_URL;
@@ -111,6 +116,10 @@
         if (s.responseLength === undefined) s.responseLength = DEFAULT_SETTINGS.responseLength;
         if (s.windowOpen === undefined) s.windowOpen = DEFAULT_SETTINGS.windowOpen;
         if (s.defaultTemplate === undefined) s.defaultTemplate = DEFAULT_SETTINGS.defaultTemplate;
+        if (s.debugMode === undefined) s.debugMode = DEFAULT_SETTINGS.debugMode;
+        if (s.directorSystemTemplate === undefined) s.directorSystemTemplate = DEFAULT_SETTINGS.directorSystemTemplate;
+        if (s.directorUserTemplate === undefined) s.directorUserTemplate = DEFAULT_SETTINGS.directorUserTemplate;
+        if (s.directiveWrapper === undefined) s.directiveWrapper = DEFAULT_SETTINGS.directiveWrapper;
         return s;
     }
 
@@ -303,6 +312,45 @@
     }
 
     // -----------------------------------------------------------------------
+    // Prompt templates (editable in Debugging Mode; null/empty = built-in default)
+    // -----------------------------------------------------------------------
+    const DEFAULT_SYSTEM_TEMPLATE = [
+        'You are the Game Master. Evaluate the player\'s latest action against the current world state.',
+        'Output ONLY valid JSON, no prose, no code fences, matching:',
+        '{ "state_mutations": { "<path>": <value> }, "narrative_directives": "string" }',
+        'state_mutations: only include paths that change this turn. For counters send a signed delta,',
+        'for flags/enums/text send the new absolute value. Omit paths that do not change.',
+        'Fields:',
+        '{{fields}}',
+        'narrative_directives: 1-4 imperative sentences telling the narrator how NPCs act and what happens this turn.',
+        'Never speak for the player. If nothing changes, use empty objects and empty string.',
+    ].join('\n');
+
+    const DEFAULT_USER_TEMPLATE = '# Current state\n{{state}}\n\n# Recent chat\n{{transcript}}';
+
+    const DEFAULT_DIRECTIVE_WRAPPER = '[Director\'s note for this turn: {{directive}}]';
+
+    function renderTemplate(tpl, vars) {
+        return String(tpl).replace(/\{\{(\w+)\}\}/g, (m, key) => (key in vars ? String(vars[key]) : m));
+    }
+
+    function systemTemplate() {
+        return getSettings().directorSystemTemplate || DEFAULT_SYSTEM_TEMPLATE;
+    }
+
+    function userTemplate() {
+        return getSettings().directorUserTemplate || DEFAULT_USER_TEMPLATE;
+    }
+
+    function directiveWrapper() {
+        return getSettings().directiveWrapper || DEFAULT_DIRECTIVE_WRAPPER;
+    }
+
+    function renderDirective(directiveText) {
+        return renderTemplate(directiveWrapper(), { directive: directiveText });
+    }
+
+    // -----------------------------------------------------------------------
     // Director
     // -----------------------------------------------------------------------
     function buildDirectorPrompt(chat, state, schema) {
@@ -313,19 +361,11 @@
             .map((m) => `${m.name || (m.is_user ? 'Player' : 'Narrator')}: ${m.mes.trim()}`)
             .join('\n\n');
 
-        const systemPrompt = [
-            'You are the Game Master. Evaluate the player\'s latest action against the current world state.',
-            'Output ONLY valid JSON, no prose, no code fences, matching:',
-            '{ "state_mutations": { "<path>": <value> }, "narrative_directives": "string" }',
-            'state_mutations: only include paths that change this turn. For counters send a signed delta,',
-            'for flags/enums/text send the new absolute value. Omit paths that do not change.',
-            'Fields:',
-            describeSchema(schema),
-            'narrative_directives: 1-4 imperative sentences telling the narrator how NPCs act and what happens this turn.',
-            'Never speak for the player. If nothing changes, use empty objects and empty string.',
-        ].join('\n');
-
-        const prompt = `# Current state\n${JSON.stringify(state, null, 2)}\n\n# Recent chat\n${transcript}`;
+        const systemPrompt = renderTemplate(systemTemplate(), { fields: describeSchema(schema) });
+        const prompt = renderTemplate(userTemplate(), {
+            state: JSON.stringify(state, null, 2),
+            transcript,
+        });
         return { systemPrompt, prompt };
     }
 
@@ -352,7 +392,7 @@
                 if (json.state_mutations !== undefined && (typeof json.state_mutations !== 'object' || json.state_mutations === null)) {
                     json.state_mutations = {};
                 }
-                return { json, raw };
+                return { json, raw, systemPrompt, prompt };
             } catch (err) {
                 lastErr = err;
             }
@@ -385,7 +425,7 @@
         try {
             const st = ensureChatState();
             const before = getBaseState();
-            const { json, raw } = await runDirector(chat, before, st.schema);
+            const { json, raw, systemPrompt, prompt } = await runDirector(chat, before, st.schema);
             const { next, applied, rejected } = applyMutations(before, json.state_mutations ?? {}, st.schema);
 
             pending = {
@@ -394,15 +434,36 @@
                 applied,
                 rejected,
                 raw,
+                sysPrompt: systemPrompt,
+                userPrompt: prompt,
             };
+            lastRun = {
+                directives: pending.directives,
+                applied,
+                rejected,
+                raw,
+                sysPrompt: systemPrompt,
+                userPrompt: prompt,
+                at: Date.now(),
+            };
+            renderDebugSection();
 
             if (pending.directives) {
-                setDirective(`[Director's note for this turn: ${pending.directives}]`);
+                setDirective(renderDirective(pending.directives));
             }
         } catch (err) {
             // Never block the user's turn: fall back to a plain generation.
             console.warn('[AgenticHarness] Director failed, generating without it:', err);
             globalThis.toastr?.warning('Director failed; generating without it.', 'Agentic Harness');
+            let attempted = null;
+            try { attempted = buildDirectorPrompt(chat, before, st.schema); } catch { /* schema unavailable */ }
+            lastRun = {
+                error: String(err?.message ?? err),
+                sysPrompt: attempted?.systemPrompt ?? '',
+                userPrompt: attempted?.prompt ?? '',
+                at: Date.now(),
+            };
+            renderDebugSection();
         } finally {
             busy = false;
         }
@@ -429,11 +490,14 @@
             applied: pending.applied,
             rejected: pending.rejected,
             director_raw: pending.raw,
+            director_sys_prompt: pending.sysPrompt,
+            director_user_prompt: pending.userPrompt,
         };
         pending = null;
 
         await ctx().saveChat?.();
         refreshWindow();
+        renderDebugSection();
     }
 
     // -----------------------------------------------------------------------
@@ -619,6 +683,189 @@
     }
 
     // -----------------------------------------------------------------------
+    // Debugging Mode: Prompts and Templates
+    // -----------------------------------------------------------------------
+    let testRunning = false;
+
+    function dbgSetText(id, text) {
+        const el = document.getElementById(id);
+        if (el) el.value = text ?? '';
+    }
+
+    function setDbgStatus(text, kind) {
+        const el = document.getElementById('ah_dbg_status');
+        if (!el) return;
+        el.textContent = text ?? '';
+        el.classList.toggle('ah-ok', kind === 'ok');
+        el.classList.toggle('ah-err', kind === 'err');
+        el.classList.toggle('ah-warn', kind === 'warn');
+    }
+
+    /** Fill template editors, previews, last-run and the built-in templates. */
+    function renderDebugSection() {
+        const s = getSettings();
+        const toggle = document.getElementById('ah_debug_enabled');
+        if (toggle) toggle.checked = s.debugMode;
+        const content = document.getElementById('ah_debug_content');
+        if (content) content.hidden = !s.debugMode;
+        if (!s.debugMode) return;
+
+        const fillUnlessFocused = (id, text) => {
+            const el = document.getElementById(id);
+            if (el && document.activeElement !== el) el.value = text ?? '';
+        };
+
+        fillUnlessFocused('ah_dbg_sys_tpl', systemTemplate());
+        fillUnlessFocused('ah_dbg_user_tpl', userTemplate());
+        fillUnlessFocused('ah_dbg_wrap_tpl', directiveWrapper());
+
+        // Live preview: what would be sent on the next turn
+        if (ctx().chatId && !ctx().groupId) {
+            try {
+                const st = ensureChatState();
+                const { systemPrompt, prompt } = buildDirectorPrompt(ctx().chat, getBaseState(), st.schema);
+                dbgSetText('ah_dbg_sys_live', systemPrompt);
+                dbgSetText('ah_dbg_user_live', prompt);
+            } catch (e) {
+                dbgSetText('ah_dbg_sys_live', `(preview error: ${e.message})`);
+                dbgSetText('ah_dbg_user_live', '');
+            }
+        } else {
+            dbgSetText('ah_dbg_sys_live', '(open a single-character chat to preview)');
+            dbgSetText('ah_dbg_user_live', '(open a single-character chat to preview)');
+        }
+
+        // Last executed run
+        if (lastRun) {
+            const at = new Date(lastRun.at).toLocaleTimeString();
+            const metaEl = document.getElementById('ah_dbg_last_meta');
+            if (metaEl) {
+                metaEl.textContent = lastRun.error
+                    ? `Last run ${at}: FAILED — ${lastRun.error}`
+                    : `Last run ${at}: OK — applied ${JSON.stringify(lastRun.applied ?? {})}` +
+                        (Object.keys(lastRun.rejected ?? {}).length ? `, rejected ${JSON.stringify(lastRun.rejected)}` : '');
+            }
+            dbgSetText('ah_dbg_sys_last', lastRun.sysPrompt ?? '');
+            dbgSetText('ah_dbg_user_last', lastRun.userPrompt ?? '');
+            dbgSetText('ah_dbg_result_last', lastRun.error
+                ? `ERROR: ${lastRun.error}`
+                : `raw:\n${lastRun.raw}\n\napplied: ${JSON.stringify(lastRun.applied ?? {}, null, 2)}\nrejected: ${JSON.stringify(lastRun.rejected ?? {}, null, 2)}`);
+            dbgSetText('ah_dbg_directive_last', lastRun.directives ? renderDirective(lastRun.directives) : '(no directive in last run)');
+        } else {
+            const metaEl = document.getElementById('ah_dbg_last_meta');
+            if (metaEl) metaEl.textContent = 'No Director run yet in this session.';
+            dbgSetText('ah_dbg_sys_last', '');
+            dbgSetText('ah_dbg_user_last', '');
+            dbgSetText('ah_dbg_result_last', '');
+            dbgSetText('ah_dbg_directive_last', '');
+        }
+
+        // Built-in schema templates
+        dbgSetText('ah_dbg_tpl_relationship', JSON.stringify(TEMPLATES.relationship, null, 2));
+        dbgSetText('ah_dbg_tpl_dungeon', JSON.stringify(TEMPLATES.dungeon, null, 2));
+        dbgSetText('ah_dbg_tpl_mystery', JSON.stringify(TEMPLATES.mystery, null, 2));
+    }
+
+    function bindTemplateEditor(textId, applyId, resetId, settingKey, requiredKeys) {
+        jQuery('#' + applyId).on('click', () => {
+            const v = document.getElementById(textId).value;
+            if (!v || !v.trim()) {
+                setDbgStatus('Template is empty — keeping the previous value (use Reset to restore the default).', 'warn');
+                return;
+            }
+            getSettings()[settingKey] = v;
+            saveSettingsDebounced();
+            const missing = requiredKeys.filter((k) => !v.includes(`{{${k}}}`));
+            if (missing.length) {
+                setDbgStatus(`Applied — warning: missing placeholder(s) ${missing.map((k) => `{{${k}}}`).join(', ')}`, 'warn');
+            } else {
+                setDbgStatus('Template applied.', 'ok');
+            }
+            renderDebugSection();
+        });
+        jQuery('#' + resetId).on('click', () => {
+            getSettings()[settingKey] = null;
+            saveSettingsDebounced();
+            setDbgStatus('Reset to built-in default.', 'ok');
+            renderDebugSection();
+        });
+    }
+
+    /** Dry-run: send the live preview prompt once, show the result, change nothing. */
+    async function testDirector() {
+        if (testRunning) return;
+        if (busy) {
+            setDbgStatus('A generation is in progress — run the test after it finishes.', 'warn');
+            return;
+        }
+        if (!ctx().chatId || ctx().groupId) {
+            setDbgStatus('Open a single-character chat first.', 'warn');
+            return;
+        }
+        testRunning = true;
+        const testBtn = document.getElementById('ah_dbg_test');
+        if (testBtn) testBtn.classList.add('ah-busy');
+        setDbgStatus('Running Test Director…', 'ok');
+        dbgSetText('ah_dbg_test_out', '');
+        const t0 = Date.now();
+        try {
+            const st = ensureChatState();
+            const base = getBaseState();
+            const { systemPrompt, prompt } = buildDirectorPrompt(ctx().chat, base, st.schema);
+            const raw = await ctx().generateRaw({ prompt, systemPrompt, responseLength: getSettings().responseLength });
+            const ms = Date.now() - t0;
+            const json = extractJson(raw);
+            if (typeof json.narrative_directives !== 'string') json.narrative_directives = '';
+            if (json.state_mutations !== undefined && (typeof json.state_mutations !== 'object' || json.state_mutations === null)) {
+                json.state_mutations = {};
+            }
+            const { next, applied, rejected } = applyMutations(base, json.state_mutations ?? {}, st.schema);
+
+            let out = `(${ms} ms)\n--- RAW ---\n${raw}\n\n`;
+            out += `--- PARSED ---\n${JSON.stringify(json, null, 2)}\n\n`;
+            out += `--- WOULD APPLY (nothing saved, nothing injected) ---\n`;
+            out += `applied: ${JSON.stringify(applied, null, 2)}\nrejected: ${JSON.stringify(rejected, null, 2)}\n\n`;
+            out += `--- STATE AFTER (preview only) ---\n${JSON.stringify(next, null, 2)}`;
+            if (json.narrative_directives.trim()) {
+                out += `\n\n--- DIRECTIVE (not injected) ---\n${renderDirective(json.narrative_directives.trim())}`;
+            }
+            dbgSetText('ah_dbg_test_out', out);
+            setDbgStatus(`Test OK (${ms} ms). Nothing was applied or injected.`, 'ok');
+        } catch (e) {
+            dbgSetText('ah_dbg_test_out', String(e?.stack || e));
+            setDbgStatus(`Test failed: ${e?.message ?? e}`, 'err');
+        } finally {
+            testRunning = false;
+            if (testBtn) testBtn.classList.remove('ah-busy');
+        }
+    }
+
+    function bindDebugSection() {
+        jQuery('#ah_debug_enabled').on('change', function () {
+            getSettings().debugMode = jQuery(this).is(':checked');
+            saveSettingsDebounced();
+            renderDebugSection();
+        });
+
+        bindTemplateEditor('ah_dbg_sys_tpl', 'ah_dbg_sys_apply', 'ah_dbg_sys_reset', 'directorSystemTemplate', ['fields']);
+        bindTemplateEditor('ah_dbg_user_tpl', 'ah_dbg_user_apply', 'ah_dbg_user_reset', 'directorUserTemplate', ['state', 'transcript']);
+        bindTemplateEditor('ah_dbg_wrap_tpl', 'ah_dbg_wrap_apply', 'ah_dbg_wrap_reset', 'directiveWrapper', ['directive']);
+
+        jQuery('#ah_dbg_refresh').on('click', () => {
+            renderDebugSection();
+            setDbgStatus('Previews refreshed.', 'ok');
+        });
+        jQuery('#ah_dbg_test').on('click', () => { void testDirector(); });
+
+        const promptsBlock = document.getElementById('ah_prompts_block');
+        if (promptsBlock) {
+            promptsBlock.addEventListener('toggle', () => {
+                if (promptsBlock.open) renderDebugSection();
+            });
+        }
+    }
+
+    // -----------------------------------------------------------------------
     // Settings drawer
     // -----------------------------------------------------------------------
     async function loadSettings() {
@@ -690,6 +937,7 @@
             await ctx().saveMetadata?.();
             globalThis.toastr?.success(`Template "${tpl.name}" loaded.`, 'Agentic Harness');
             refreshWindow();
+            renderDebugSection();
         });
 
         document.getElementById('ah_enabled').checked = s.enabled;
@@ -699,6 +947,8 @@
         bindNumberInit('#ah_retries', s.retries);
         bindNumberInit('#ah_resplen', s.responseLength);
         syncWindowToggle();
+        bindDebugSection();
+        renderDebugSection();
     }
 
     function bindNumberInit(selector, value) {
@@ -730,6 +980,7 @@
         context.eventSource.on(context.event_types.CHAT_CHANGED, () => {
             ensureChatState();
             refreshWindow();
+            renderDebugSection();
         });
         for (const ev of [context.event_types.MESSAGE_SWIPED, context.event_types.MESSAGE_DELETED]) {
             context.eventSource.on(ev, refreshWindow);
@@ -737,6 +988,7 @@
 
         if (context.chatId) ensureChatState();
         if (s.windowOpen) setWindowVisible(true);
+        renderDebugSection();
 
         console.log('Agentic Harness extension loaded');
     }

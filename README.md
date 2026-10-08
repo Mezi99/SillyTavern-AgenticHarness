@@ -33,6 +33,32 @@ Required files: `manifest.json`, `index.js`, `settings.html`, `style.css`. Then 
 - **Fail-open**: if the Director call fails or returns bad JSON, it retries once and then generates without the Director — your turn is never blocked.
 - Requires no configuration: the Director call reuses whatever API/preset you already have configured in SillyTavern (`generateRaw`).
 
+## Debugging Mode (prompt calibration)
+
+Power-user tools for tuning the prompts without touching code. Enable **Debugging Mode** in the drawer to reveal **Prompts and Templates**:
+
+- **Editable templates** (stored as settings overrides, with Reset-to-default):
+  - Director **system** prompt — placeholder `{{fields}}` (rendered schema field list)
+  - Director **user** prompt — placeholders `{{state}}` and `{{transcript}}`
+  - **Directive wrapper** — placeholder `{{directive}}` (what the Author turn actually sees injected)
+- **Live preview**: exactly what would be sent on the next turn, from the current chat's schema/state.
+- **Last executed run**: the system/user prompts actually sent (captured per run, including failed attempts), plus applied/rejected mutations.
+- **Author directive**: the rendered wrapper from the last run (the rest of the Author prompt is assembled by SillyTavern itself).
+- **Schema templates**: the three built-in templates as JSON.
+- **Test Director**: dry-runs the live preview prompt once — shows timing, raw response, parsed JSON and what *would* be applied — without touching state or injecting anything.
+
+The captured prompts are also stored per reply in `message.extra.ah` alongside the state snapshot.
+
+## Tests
+
+```
+cd test
+npm install
+npm test
+```
+
+Runs `index.js` under jsdom with a stubbed SillyTavern context (61 assertions: pipeline, state engine, snapshots, fail-open, window, Debugging Mode).
+
 ## Design
 
 See `DesignDraft.txt` and the architecture notes in the repository history. v2 candidates: Editor pass (deterministic regex first), per-swipe snapshots, a cheaper Director model (custom backend / Connection Manager), and a schema-Architect agent that drafts a schema from the character card.

@@ -65,6 +65,118 @@
                 </div>
             </details>
 
+            <details class="ah-set-block" id="ah_debug_block">
+                <summary class="ah-set-header">
+                    <span class="fa-solid fa-chevron-down ah-set-chevron"></span>
+                    <span>Debugging Mode</span>
+                </summary>
+                <div class="ah-set-body">
+                    <label class="ah-toggle-row" for="ah_debug_enabled">
+                        <input type="checkbox" id="ah_debug_enabled" class="checkbox">
+                        <span>Enable debugging mode</span>
+                    </label>
+                    <div class="ah-hint">Power-user tools for calibrating prompts. Everything below is local: nothing extra is sent anywhere except the explicit Test Director call.</div>
+
+                    <div id="ah_debug_content" class="ah-debug-content" hidden>
+                        <details class="ah-debug-sub" id="ah_prompts_block">
+                            <summary><span class="fa-solid fa-chevron-down ah-set-chevron"></span> Prompts and Templates</summary>
+                            <div class="ah-debug-body">
+
+                                <details class="ah-debug-inner">
+                                    <summary>Director system prompt template (editable)</summary>
+                                    <div class="ah-debug-inner-body">
+                                        <div class="ah-win-meta">Placeholders: <code>{{fields}}</code> — rendered schema field list. A warning appears if you remove it.</div>
+                                        <textarea id="ah_dbg_sys_tpl" class="text_pole ah-win-editor" rows="10" spellcheck="false"></textarea>
+                                        <div class="ah-win-actions">
+                                            <div id="ah_dbg_sys_apply" class="menu_button">Apply</div>
+                                            <div id="ah_dbg_sys_reset" class="menu_button">Reset to default</div>
+                                        </div>
+                                    </div>
+                                </details>
+
+                                <details class="ah-debug-inner">
+                                    <summary>Director user prompt template (editable)</summary>
+                                    <div class="ah-debug-inner-body">
+                                        <div class="ah-win-meta">Placeholders: <code>{{state}}</code> — current state JSON, <code>{{transcript}}</code> — recent chat.</div>
+                                        <textarea id="ah_dbg_user_tpl" class="text_pole ah-win-editor" rows="6" spellcheck="false"></textarea>
+                                        <div class="ah-win-actions">
+                                            <div id="ah_dbg_user_apply" class="menu_button">Apply</div>
+                                            <div id="ah_dbg_user_reset" class="menu_button">Reset to default</div>
+                                        </div>
+                                    </div>
+                                </details>
+
+                                <details class="ah-debug-inner">
+                                    <summary>Directive wrapper (editable)</summary>
+                                    <div class="ah-debug-inner-body">
+                                        <div class="ah-win-meta">Placeholder: <code>{{directive}}</code> — the Director's narrative_directives text injected for the Author turn.</div>
+                                        <textarea id="ah_dbg_wrap_tpl" class="text_pole ah-win-editor" rows="3" spellcheck="false"></textarea>
+                                        <div class="ah-win-actions">
+                                            <div id="ah_dbg_wrap_apply" class="menu_button">Apply</div>
+                                            <div id="ah_dbg_wrap_reset" class="menu_button">Reset to default</div>
+                                        </div>
+                                    </div>
+                                </details>
+
+                                <details class="ah-debug-inner">
+                                    <summary>Live preview (would be sent on the next turn)</summary>
+                                    <div class="ah-debug-inner-body">
+                                        <div class="ah-win-meta">System prompt — built from the current chat's schema:</div>
+                                        <textarea id="ah_dbg_sys_live" class="text_pole ah-win-editor" rows="10" readonly spellcheck="false"></textarea>
+                                        <div class="ah-win-meta">User prompt — built from the base state + recent chat (raw chat array, so minor formatting differences vs the intercepted prompt are expected):</div>
+                                        <textarea id="ah_dbg_user_live" class="text_pole ah-win-editor" rows="10" readonly spellcheck="false"></textarea>
+                                    </div>
+                                </details>
+
+                                <details class="ah-debug-inner">
+                                    <summary>Last executed run</summary>
+                                    <div class="ah-debug-inner-body">
+                                        <div id="ah_dbg_last_meta" class="ah-win-meta">No Director run yet in this session.</div>
+                                        <div class="ah-win-meta">System prompt actually sent:</div>
+                                        <textarea id="ah_dbg_sys_last" class="text_pole ah-win-editor" rows="10" readonly spellcheck="false"></textarea>
+                                        <div class="ah-win-meta">User prompt actually sent:</div>
+                                        <textarea id="ah_dbg_user_last" class="text_pole ah-win-editor" rows="10" readonly spellcheck="false"></textarea>
+                                        <div class="ah-win-meta">Result:</div>
+                                        <textarea id="ah_dbg_result_last" class="text_pole ah-win-editor" rows="6" readonly spellcheck="false"></textarea>
+                                    </div>
+                                </details>
+
+                                <details class="ah-debug-inner">
+                                    <summary>Author directive (what we inject)</summary>
+                                    <div class="ah-debug-inner-body">
+                                        <div class="ah-win-meta">Rendered with the wrapper template for the last run:</div>
+                                        <textarea id="ah_dbg_directive_last" class="text_pole ah-win-editor" rows="3" readonly spellcheck="false"></textarea>
+                                        <div class="ah-win-meta">The rest of the Author's prompt is assembled by SillyTavern itself and is not controlled by this extension.</div>
+                                    </div>
+                                </details>
+
+                                <details class="ah-debug-inner">
+                                    <summary>Schema templates (built-in)</summary>
+                                    <div class="ah-debug-inner-body">
+                                        <div class="ah-win-meta">Relationship Focus:</div>
+                                        <textarea id="ah_dbg_tpl_relationship" class="text_pole ah-win-editor" rows="8" readonly spellcheck="false"></textarea>
+                                        <div class="ah-win-meta">Dungeon Crawl:</div>
+                                        <textarea id="ah_dbg_tpl_dungeon" class="text_pole ah-win-editor" rows="8" readonly spellcheck="false"></textarea>
+                                        <div class="ah-win-meta">Mystery / Investigation:</div>
+                                        <textarea id="ah_dbg_tpl_mystery" class="text_pole ah-win-editor" rows="8" readonly spellcheck="false"></textarea>
+                                    </div>
+                                </details>
+
+                                <div class="ah-win-actions">
+                                    <div id="ah_dbg_refresh" class="menu_button">Refresh previews</div>
+                                    <div id="ah_dbg_test" class="menu_button">Test Director</div>
+                                </div>
+                                <div class="ah-win-meta">Test Director sends the live preview prompt once (no retries), applies nothing and injects nothing — it only shows what would happen.</div>
+                                <div class="ah-win-status" id="ah_dbg_status"></div>
+                                <div class="ah-win-meta">Test output:</div>
+                                <textarea id="ah_dbg_test_out" class="text_pole ah-win-editor" rows="8" readonly spellcheck="false"></textarea>
+
+                            </div>
+                        </details>
+                    </div>
+                </div>
+            </details>
+
         </div>
     </div>
 </div>

@@ -1,0 +1,12 @@
+{
+    "name": "agentic-harness-tests",
+    "private": true,
+    "description": "Smoke tests for the Agentic Harness extension (runs index.js under jsdom with a stubbed SillyTavern context)",
+    "scripts": {
+        "test": "node smoke.test.js"
+    },
+    "dependencies": {
+        "jsdom": "^24.0.0",
+        "jquery": "^3.7.1"
+    }
+}
