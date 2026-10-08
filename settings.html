@@ -1,0 +1,70 @@
+<div class="ah-settings-drawer">
+    <div class="inline-drawer">
+        <div class="inline-drawer-toggle inline-drawer-header">
+            <b><i class="fa-solid fa-diagram-project"></i> Agentic Harness</b>
+            <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+        </div>
+        <div class="inline-drawer-content ah-settings">
+
+            <details class="ah-set-block" open>
+                <summary class="ah-set-header">
+                    <span class="fa-solid fa-chevron-down ah-set-chevron"></span>
+                    <span>Main Switch</span>
+                </summary>
+                <div class="ah-set-body">
+                    <label class="ah-toggle-row" for="ah_enabled">
+                        <input type="checkbox" id="ah_enabled" class="checkbox">
+                        <span>Enable Agentic Harness</span>
+                    </label>
+                    <div class="ah-hint">Runs a hidden Director call before each reply, applies whitelisted state mutations, and injects a directive into the prompt.</div>
+                    <label class="ah-toggle-row" for="ah_open_window">
+                        <input type="checkbox" id="ah_open_window" class="checkbox">
+                        <span>Show Harness window</span>
+                    </label>
+                    <div class="ah-hint">Draggable window with state editor, schema editor and Director log.</div>
+                </div>
+            </details>
+
+            <details class="ah-set-block">
+                <summary class="ah-set-header">
+                    <span class="fa-solid fa-chevron-down ah-set-chevron"></span>
+                    <span>Schema Template</span>
+                </summary>
+                <div class="ah-set-body">
+                    <label class="ah-select-row" for="ah_template">
+                        <span>Template</span>
+                        <select id="ah_template" class="text_pole"></select>
+                    </label>
+                    <div class="ah-hint">Applied to a new chat (or when no schema exists yet). Loading a template resets the schema and the state baseline for the current chat.</div>
+                    <div id="ah_template_apply" class="menu_button">Load template into this chat</div>
+                </div>
+            </details>
+
+            <details class="ah-set-block">
+                <summary class="ah-set-header">
+                    <span class="fa-solid fa-chevron-down ah-set-chevron"></span>
+                    <span>Director Settings</span>
+                </summary>
+                <div class="ah-set-body">
+                    <label class="ah-number-row" for="ah_context">
+                        <span>Context messages</span>
+                        <input id="ah_context" type="number" min="1" max="50" class="text_pole">
+                    </label>
+                    <label class="ah-number-row" for="ah_depth">
+                        <span>Directive depth (0 = end of context)</span>
+                        <input id="ah_depth" type="number" min="0" max="10000" class="text_pole">
+                    </label>
+                    <label class="ah-number-row" for="ah_retries">
+                        <span>Director retries on bad JSON</span>
+                        <input id="ah_retries" type="number" min="0" max="3" class="text_pole">
+                    </label>
+                    <label class="ah-number-row" for="ah_resplen">
+                        <span>Director max response length</span>
+                        <input id="ah_resplen" type="number" min="64" max="4096" class="text_pole">
+                    </label>
+                </div>
+            </details>
+
+        </div>
+    </div>
+</div>

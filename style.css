@@ -1,0 +1,209 @@
+/* ============================================================
+   AGENTIC HARNESS — SETTINGS DRAWER
+   ============================================================ */
+.ah-settings .ah-set-block {
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    background: color-mix(in srgb, var(--SmartThemeBlockColor) 60%, transparent);
+}
+
+.ah-set-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    cursor: pointer;
+    font-weight: 600;
+    user-select: none;
+}
+
+.ah-set-chevron {
+    font-size: 0.8em;
+    transition: transform 0.15s ease;
+}
+
+.ah-set-block[open] > .ah-set-header > .ah-set-chevron {
+    transform: rotate(180deg);
+}
+
+.ah-set-body {
+    padding: 4px 10px 10px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ah-toggle-row,
+.ah-select-row,
+.ah-number-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: 0.95em;
+}
+
+.ah-number-row {
+    justify-content: space-between;
+}
+
+.ah-number-row input {
+    width: 90px;
+}
+
+.ah-select-row select {
+    flex: 1;
+    max-width: 260px;
+}
+
+.ah-hint {
+    font-size: 0.82em;
+    opacity: 0.7;
+    line-height: 1.35;
+}
+
+/* ============================================================
+   AGENTIC HARNESS — DRAGGABLE WINDOW
+   ============================================================ */
+.ah-window {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    width: 460px;
+    max-width: calc(100vw - 40px);
+    max-height: calc(100vh - 40px);
+    display: flex;
+    flex-direction: column;
+    z-index: 10000;
+    background-color: color-mix(in srgb, var(--SmartThemeBlockColor) 92%, #000 8%);
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    overflow: hidden;
+    color: var(--SmartThemeBodyColor);
+    font-family: inherit;
+}
+
+.ah-window.is-hidden {
+    display: none;
+}
+
+.ah-win-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    background: linear-gradient(90deg, var(--SmartThemeChatTintColor), var(--SmartThemeBlurTintColor));
+    border-bottom: 1px solid var(--SmartThemeBorderColor);
+    cursor: grab;
+    user-select: none;
+    font-weight: 600;
+    font-size: 0.95em;
+    flex: 0 0 auto;
+}
+
+.ah-win-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ah-win-close {
+    background: transparent;
+    border: none;
+    color: var(--SmartThemeBodyColor);
+    font-size: 1.2em;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 4px;
+}
+
+.ah-win-close:hover {
+    color: var(--SmartThemeEmColor);
+}
+
+.ah-win-body {
+    padding: 10px 12px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ah-win-section {
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.ah-win-section > summary {
+    padding: 7px 10px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9em;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: color-mix(in srgb, var(--SmartThemeBlockColor) 70%, transparent);
+}
+
+.ah-win-section > div.ah-win-section-body {
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.ah-win-meta {
+    font-size: 0.8em;
+    opacity: 0.7;
+    line-height: 1.35;
+}
+
+.ah-win-editor {
+    width: 100%;
+    min-height: 140px;
+    font-family: monospace;
+    font-size: 0.85em;
+    resize: vertical;
+}
+
+.ah-win-log {
+    width: 100%;
+    min-height: 160px;
+    max-height: 260px;
+    overflow-y: auto;
+    font-family: monospace;
+    font-size: 0.8em;
+    white-space: pre-wrap;
+    word-break: break-word;
+    background: color-mix(in srgb, #000 55%, var(--SmartThemeBlockColor));
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 6px;
+    padding: 8px;
+    user-select: text;
+}
+
+.ah-win-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.ah-win-status {
+    font-size: 0.82em;
+    min-height: 1.2em;
+}
+
+.ah-win-status.ah-ok {
+    color: var(--SmartThemeEmColor);
+}
+
+.ah-win-status.ah-err {
+    color: var(--SmartThemeQuoteColor, #e06c75);
+}

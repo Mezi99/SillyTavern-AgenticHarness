@@ -1,0 +1,91 @@
+SillyTavern Agentic Harness Extension: Architecture Design Draft
+This architecture pattern intercepts the default SillyTavern message execution pipeline. Instead of passing the raw chat history straight to the completion API, it uses a stateful middleware interceptor to run background reasoning cycles, manage ephemeral context, and enforce rigid world states.
+1. Data & State Flow Pipeline
+     [User presses "Send"]
+               │
+               ▼
+┌──────────────────────────────┐
+│  Extension Event Listener    │ ◄── Intercepts `onBeforeGeneration`
+└──────────────────────────────┘
+               │
+               ▼
+┌──────────────────────────────┐
+│  State & Memory Broker       │ ◄── Fetches local extension state variables
+└──────────────────────────────┘     (Inventories, hidden plot flags, etc.)
+               │
+               ▼
+┌──────────────────────────────┐
+│    1. Director Execution     │ ◄── Secret API Call (System context + State)
+└──────────────────────────────┘
+               │
+      [Parses JSON Response]
+               │
+               ▼
+┌──────────────────────────────┐
+│   Harness Logic Engine       │ ◄── Executes deterministic code rules
+└──────────────────────────────┘     (Updates local state, tracks data shifts)
+               │
+    [Injects System Directives]
+               │
+               ▼
+┌──────────────────────────────┐
+│    2. Author Execution       │ ◄── Main SillyTavern Call (Cleaned history)
+└──────────────────────────────┘
+               │
+      [Intercepts Prose Output]
+               │
+               ▼
+┌──────────────────────────────┐
+│    3. Editor Execution       │ ◄── Fast API Call (Validates rules/markdown)
+└──────────────────────────────┘
+               │
+               ▼
+     [Render Message in UI]
+2. Core Structural Components
+A. The Middleware Interceptor (Event Hook)
+Your extension hooks directly into SillyTavern's lifecycle events. It pauses the user's message submission, prevents the default API payload from firing immediately, and runs the agentic pipeline in the background.
+B. The State Manager (The "Source of Truth")
+A persistent JSON schema managed by the extension (saved per character/chat session). It tracks variables the LLM cannot reliably remember long-term:
+json
+{
+  "plot_flags": {
+    "knows_secret_identity": false,
+    "current_quest": "acquire_the_key"
+  },
+  "npc_disposition": {
+    "trust_level": 4
+  },
+  "world_state": {
+    "current_room": "Tavern Cellar",
+    "is_guarded": true
+  }
+}
+Use code with caution.
+C. The Ephemeral Request Engine
+A helper utility within your extension that makes lightweight, direct fetch calls to SillyTavern’s active API endpoint configuration (whether it's OpenAI, Anthropic, or Text-Generation-WebUI). This allows you to generate text without pushing those tokens into the visible chat history.
+3. Step-by-Step Execution Blueprint
+Step 1: The Director Phase (Hidden Logic)
+• Action: When a user sends a message, the extension intercepts it. It packages the last few chat messages alongside the current State Manager JSON.
+• The Prompt: Force a JSON output schema via system instructions.text
+[System Note: You are the Game Master. Evaluate the player's action against the current world state. Output ONLY valid JSON matching this schema: 
+{ "internal_monologue": "string", "state_mutations": { "trust_level": "number" }, "narrative_directives": "string" }]
+Use code with caution.
+• Harness Resolution: The extension executes a hidden API call. When the JSON returns, the extension reads state_mutations, applies those updates directly to the State Manager, and saves the narrative_directives to a temporary string variable. Crucially, this entire exchange is thrown away and never saved to the chat log.
+Step 2: The Author Phase (Prose Generation)
+• Action: The extension now allows SillyTavern's core logic to resume, but it mutates the outgoing payload structure right before it hits the network.
+• The Prompt: The extension appends an Author's Note / System Prompt to the tail end of the context containing the clean directives discovered in Step 1.text
+[System Directive from Director: In this turn, the NPC acts cold because trust has dropped. They will drop a hint about the cellar door key, but will not give it away easily. Maintain rich imagery.]
+Use code with caution.
+• Harness Resolution: SillyTavern streams the response normally into the chat interface. Because the model's brain is completely unburdened by tracking mechanical state logic or thinking through its hidden plan on the same line, the resulting prose quality and structural consistency drastically increase.
+Step 3: The Editor Phase (Optional Polish Gate)
+• Action: Once the Author output finishes streaming, the extension captures the text string before it is permanently appended to the chat database.
+• The Prompt: Send the raw prose chunk to a fast, low-cost API call.text
+[Text: {{output}}]
+Task: If the text contains broken formatting, unclosed asterisks, or violates the rule that NPCs shouldn't speak for the player, fix it. Otherwise, return it unchanged.
+Use code with caution.
+• Harness Resolution: The clean text is returned, replacing the raw string, and finally saved to the visible UI.
+4. Implementation Strategy inside SillyTavern
+To build this using SillyTavern's module ecosystem, your extension script (index.js) will rely on these primary architectural entry points:
+1. Registering for Hooks: Use eventSource.on(event_types.USER_MESSAGE_RENDERED, async (messageId) => { ... }) or register a custom middleware processor via addContentInterceptor if you want to alter text streams before rendering.
+2. Context Extraction: Utilize native ST functions like getContext() to safely access the active character list, current prompt arrays, and token counting utilities.
+3. Endpoint Re-use: Read the active endpoint configuration out of secret_state or settings so your extension's background calls automatically inherit whatever API key, proxy, or local server (like KoboldCPP/Ollama) the user has already configured in their SillyTavern UI.
