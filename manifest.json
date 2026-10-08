@@ -1,0 +1,13 @@
+{
+    "display_name": "Agentic Harness",
+    "loading_order": 10,
+    "requires": [],
+    "optional": [],
+    "generate_interceptor": "agenticHarnessInterceptor",
+    "js": "index.js",
+    "css": "style.css",
+    "author": "Mezi99",
+    "version": "0.1.0",
+    "homePage": "https://github.com/Mezi99/SillyTavern-AgenticHarness",
+    "auto_update": true
+}
