@@ -207,3 +207,68 @@
 .ah-win-status.ah-err {
     color: var(--SmartThemeQuoteColor, #e06c75);
 }
+
+/* ============================================================
+   AGENTIC HARNESS — DEBUGGING MODE
+   ============================================================ */
+.ah-debug-content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ah-debug-sub,
+.ah-debug-inner {
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--SmartThemeBlockColor) 50%, transparent);
+}
+
+.ah-debug-sub > summary,
+.ah-debug-inner > summary {
+    padding: 7px 10px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9em;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ah-debug-inner > summary {
+    font-weight: 500;
+    font-size: 0.88em;
+    opacity: 0.9;
+}
+
+.ah-debug-body {
+    padding: 6px 8px 10px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ah-debug-inner-body {
+    padding: 6px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.ah-win-meta code {
+    background: color-mix(in srgb, #000 40%, transparent);
+    border-radius: 4px;
+    padding: 0 4px;
+    font-size: 0.95em;
+}
+
+.ah-win-status.ah-warn {
+    color: var(--SmartThemeEmColor, #e5c07b);
+    opacity: 0.9;
+}
+
+#ah_dbg_test.ah-busy {
+    opacity: 0.5;
+    pointer-events: none;
+}
