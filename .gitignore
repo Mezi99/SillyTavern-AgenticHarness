@@ -1,0 +1,5 @@
+# Local-only reference material (never published)
+Local Help Files/
+
+# Test dependencies
+test/node_modules/
